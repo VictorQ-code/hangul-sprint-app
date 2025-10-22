@@ -1,0 +1,14 @@
+# Ignorar el entorno virtual
+.venv/
+
+# Ignorar carpetas de caché de Python
+__pycache__/
+*.pyc
+
+# Ignorar carpetas de VSCode
+.vscode/
+
+# Ignorar carpetas de empaquetado de PyInstaller
+build/
+dist/
+*.spec
