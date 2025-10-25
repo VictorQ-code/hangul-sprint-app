@@ -1,6 +1,6 @@
 # src/core_logic/stats.py (Versión Completa y Corregida)
 
-from .data import database # Asegúrate de que la importación sea relativa
+from data import database # Asegúrate de que la importación sea relativa
 
 def get_practice_item(level=1):
     """
