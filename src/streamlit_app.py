@@ -1,4 +1,4 @@
-# src/streamlit_app.py (Versión con traducciones en resultados de romanización)
+# src/streamlit_app.py (Versión con traducciones integradas en los resultados)
 
 import streamlit as st
 import time
@@ -77,7 +77,6 @@ def setup_romanization_game():
             hangul_text, correct_romanization = item['hangul'], item['roman']
             if not hangul_text or not correct_romanization: continue
             distractors = generate_distractors(correct_romanization); options = distractors + [correct_romanization]; random.shuffle(options)
-            # --- CAMBIO IMPORTANTE: Guardar la traducción junto con la pregunta ---
             st.session_state.romanization_questions.append({
                 "hangul": hangul_text, 
                 "correct": correct_romanization, 
@@ -196,23 +195,48 @@ elif st.session_state.page == "Romanización":
                 st.error("No se pudieron cargar preguntas. Por favor, asegúrate de que la base de datos está poblada.")
     else:
         if st.session_state.current_question_index >= len(st.session_state.romanization_questions):
-            st.header("🏁 Resultados del Test"); correct_answers = 0; wrong_answers_details = []
+            st.header("🏁 Resultados del Test")
+            
+            # --- NUEVA LÓGICA DE RESULTADOS ---
+            
+            correct_answers_details = []
+            wrong_answers_details = []
+
             for i, q in enumerate(st.session_state.romanization_questions):
-                if st.session_state.user_answers[i] == q['correct']: correct_answers += 1
-                else: wrong_answers_details.append({"hangul": q['hangul'], "chosen": st.session_state.user_answers[i], "correct": q['correct']})
-            st.success(f"**Aciertos: {correct_answers} de {len(st.session_state.romanization_questions)}**")
+                detail = {
+                    "hangul": q['hangul'],
+                    "chosen": st.session_state.user_answers[i],
+                    "correct": q['correct'],
+                    "translation_en": q.get('translation_en', 'Traducción no disponible.')
+                }
+                if detail["chosen"] == detail["correct"]:
+                    correct_answers_details.append(detail)
+                else:
+                    wrong_answers_details.append(detail)
+
+            st.success(f"**Aciertos: {len(correct_answers_details)} de {len(st.session_state.romanization_questions)}**")
+            
             if wrong_answers_details:
-                st.error(f"**Fallos: {len(wrong_answers_details)} de {len(st.session_state.romanization_questions)}**"); st.divider(); st.subheader("Repaso de tus fallos:")
+                st.error(f"**Fallos: {len(wrong_answers_details)} de {len(st.session_state.romanization_questions)}**")
+                st.divider()
+                st.subheader("Repaso de tus fallos:")
                 for detail in wrong_answers_details:
-                    st.markdown(f"Para **{detail['hangul']}**:"); st.markdown(f" - <span style='color:red;'>Elegiste: `{detail['chosen']}`</span>", unsafe_allow_html=True); st.markdown(f" - <span style='color:green;'>Correcta: `{detail['correct']}`</span>", unsafe_allow_html=True); st.markdown("---")
-            
-            st.divider()
-            st.subheader("Repaso de Frases y Traducciones")
-            # --- NUEVA SECCIÓN PARA MOSTRAR TRADUCCIONES ---
-            for q in st.session_state.romanization_questions:
-                with st.expander(f"Ver traducción de '{q['hangul']}'"):
-                    st.info(f"**Traducción:** {q.get('translation_en', 'Traducción no disponible.')}")
-            
+                    st.markdown(f"Para **{detail['hangul']}**:")
+                    st.markdown(f" - <span style='color:red;'>Elegiste: `{detail['chosen']}`</span>", unsafe_allow_html=True)
+                    st.markdown(f" - <span style='color:green;'>Correcta: `{detail['correct']}`</span>", unsafe_allow_html=True)
+                    with st.expander("Ver traducción"):
+                        st.info(f"**Traducción:** {detail['translation_en']}")
+                    st.markdown("---")
+
+            if correct_answers_details:
+                st.divider()
+                st.subheader("Repaso de tus aciertos:")
+                for detail in correct_answers_details:
+                    st.markdown(f"**{detail['hangul']}** — Correcto: `{detail['correct']}`")
+                    with st.expander("Ver traducción"):
+                        st.info(f"**Traducción:** {detail['translation_en']}")
+                    st.markdown("---")
+
             st.divider()
             if st.button("↩️ Volver a Jugar", use_container_width=True):
                 st.session_state.romanization_practice_in_progress = False; st.rerun()
