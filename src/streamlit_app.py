@@ -7,6 +7,7 @@ import re
 import random
 from core_logic import stats
 from korean_romanizer.romanizer import Romanizer
+st.title("--- VERSIÓN ACTUALIZADA - 25 DE OCTUBRE ---")
 
 LEVEL_MAP = {
     1: "Principiante",
