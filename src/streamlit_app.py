@@ -1,4 +1,4 @@
-# src/streamlit_app.py (Versión con botones en lugar de slider)
+# src/streamlit_app.py (Versión con traducciones en resultados de romanización)
 
 import streamlit as st
 import time
@@ -7,7 +7,8 @@ import re
 import random
 from core_logic import stats
 from korean_romanizer.romanizer import Romanizer
-st.title("--- VERSIÓN ACTUALIZADA - 25 DE OCTUBRE ---")
+
+# --- CONFIGURACIÓN INICIAL ---
 
 LEVEL_MAP = {
     1: "Principiante",
@@ -19,20 +20,24 @@ LEVEL_MAP = {
 
 st.set_page_config(page_title="Hangul Sprint", layout="wide")
 
+# --- INICIALIZACIÓN DEL ESTADO DE SESIÓN ---
+
 if 'page' not in st.session_state: st.session_state.page = "Leer"
 if 'reading_level' not in st.session_state: st.session_state.reading_level = 1
+if 'romanization_level' not in st.session_state: st.session_state.romanization_level = 1
 if 'practice_in_progress' not in st.session_state: st.session_state.practice_in_progress = False
+if 'romanization_practice_in_progress' not in st.session_state: st.session_state.romanization_practice_in_progress = False
 if 'practice_text_info' not in st.session_state: st.session_state.practice_text_info = None
 if 'timer_running' not in st.session_state: st.session_state.timer_running = False
 if 'start_time' not in st.session_state: st.session_state.start_time = 0
 if 'elapsed_time' not in st.session_state: st.session_state.elapsed_time = 0
 if 'selected_word' not in st.session_state: st.session_state.selected_word = None
 if 'session_history' not in st.session_state: st.session_state.session_history = []
-if 'romanization_level' not in st.session_state: st.session_state.romanization_level = 1
-if 'romanization_practice_in_progress' not in st.session_state: st.session_state.romanization_practice_in_progress = False
 if 'romanization_questions' not in st.session_state: st.session_state.romanization_questions = []
 if 'current_question_index' not in st.session_state: st.session_state.current_question_index = 0
 if 'user_answers' not in st.session_state: st.session_state.user_answers = []
+
+# --- FUNCIONES LÓGICAS ---
 
 def load_new_reading_item(attempt_count=0):
     MAX_WORDS_FOR_READING, MAX_ATTEMPTS = 10, 10
@@ -72,31 +77,49 @@ def setup_romanization_game():
             hangul_text, correct_romanization = item['hangul'], item['roman']
             if not hangul_text or not correct_romanization: continue
             distractors = generate_distractors(correct_romanization); options = distractors + [correct_romanization]; random.shuffle(options)
-            st.session_state.romanization_questions.append({"hangul": hangul_text, "correct": correct_romanization, "options": options})
+            # --- CAMBIO IMPORTANTE: Guardar la traducción junto con la pregunta ---
+            st.session_state.romanization_questions.append({
+                "hangul": hangul_text, 
+                "correct": correct_romanization, 
+                "options": options,
+                "translation_en": item.get('translation_en', 'Traducción no disponible.')
+            })
             items_fetched += 1
     st.session_state.user_answers = []; st.session_state.current_question_index = 0
+
+# --- BARRA LATERAL (SIDEBAR) ---
 
 with st.sidebar:
     st.title("🏃 Hangul Sprint")
     st.session_state.page = st.radio("Modos de Práctica", ["Leer", "Romanización", "Estadísticas (próximamente)"], index=["Leer", "Romanización", "Estadísticas (próximamente)"].index(st.session_state.page))
     st.info("¡Bienvenido! Selecciona un modo para empezar.")
 
+# --- MODO LECTURA ---
+
 if st.session_state.page == "Leer":
     if not st.session_state.practice_in_progress:
         st.header("📖 Preparar Modo de Lectura")
         st.markdown("Selecciona tu nivel de dificultad y pulsa 'Empezar'. El cronómetro comenzará de inmediato.")
         
-        st.session_state.reading_level = st.slider(
-            "Elige tu nivel", 
-            min_value=1, 
-            max_value=4, 
-            value=st.session_state.reading_level,
-            format_func=lambda x: LEVEL_MAP.get(x, f"Nivel {x}")
-        )
+        st.write("**Elige tu nivel:**")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            if st.button(LEVEL_MAP[1], use_container_width=True, type="secondary" if st.session_state.reading_level != 1 else "primary", key="read_lvl_1"):
+                st.session_state.reading_level = 1; st.rerun()
+        with col2:
+            if st.button(LEVEL_MAP[2], use_container_width=True, type="secondary" if st.session_state.reading_level != 2 else "primary", key="read_lvl_2"):
+                st.session_state.reading_level = 2; st.rerun()
+        with col3:
+            if st.button(LEVEL_MAP[3], use_container_width=True, type="secondary" if st.session_state.reading_level != 3 else "primary", key="read_lvl_3"):
+                st.session_state.reading_level = 3; st.rerun()
+        with col4:
+            if st.button(LEVEL_MAP[4], use_container_width=True, type="secondary" if st.session_state.reading_level != 4 else "primary", key="read_lvl_4"):
+                st.session_state.reading_level = 4; st.rerun()
+        st.info(f"Nivel seleccionado: **{LEVEL_MAP.get(st.session_state.reading_level, 'No definido')}**")
         
         st.divider()
         if st.button("🚀 Empezar a Leer", use_container_width=True, type="primary"):
-            st.session_state.session_history = [];
+            st.session_state.session_history = []
             with st.spinner("Cargando texto adecuado..."): load_new_reading_item()
             if st.session_state.practice_text_info:
                 st.session_state.session_history.append(st.session_state.practice_text_info)
@@ -141,36 +164,27 @@ if st.session_state.page == "Leer":
                 if st.button("↩️ Practicar de Nuevo", use_container_width=True):
                     st.session_state.practice_in_progress = False; st.rerun()
 
+# --- MODO ROMANIZACIÓN ---
+
 elif st.session_state.page == "Romanización":
     if not st.session_state.romanization_practice_in_progress:
         st.header("✍️ Test de Romanización")
         st.markdown("Elige la romanización correcta para cada palabra o frase en coreano. ¡Presta atención a los detalles!")
         
-        # --- REEMPLAZO DE SLIDER POR BOTONES ---
         st.write("**Elige tu nivel:**")
-        
         col1, col2, col3, col4 = st.columns(4)
-
         with col1:
-            if st.button(LEVEL_MAP[1], use_container_width=True, type="secondary" if st.session_state.romanization_level != 1 else "primary"):
-                st.session_state.romanization_level = 1
-                st.rerun()
-
+            if st.button(LEVEL_MAP[1], use_container_width=True, type="secondary" if st.session_state.romanization_level != 1 else "primary", key="roman_lvl_1"):
+                st.session_state.romanization_level = 1; st.rerun()
         with col2:
-            if st.button(LEVEL_MAP[2], use_container_width=True, type="secondary" if st.session_state.romanization_level != 2 else "primary"):
-                st.session_state.romanization_level = 2
-                st.rerun()
-
+            if st.button(LEVEL_MAP[2], use_container_width=True, type="secondary" if st.session_state.romanization_level != 2 else "primary", key="roman_lvl_2"):
+                st.session_state.romanization_level = 2; st.rerun()
         with col3:
-            if st.button(LEVEL_MAP[3], use_container_width=True, type="secondary" if st.session_state.romanization_level != 3 else "primary"):
-                st.session_state.romanization_level = 3
-                st.rerun()
-
+            if st.button(LEVEL_MAP[3], use_container_width=True, type="secondary" if st.session_state.romanization_level != 3 else "primary", key="roman_lvl_3"):
+                st.session_state.romanization_level = 3; st.rerun()
         with col4:
-            if st.button(LEVEL_MAP[4], use_container_width=True, type="secondary" if st.session_state.romanization_level != 4 else "primary"):
-                st.session_state.romanization_level = 4
-                st.rerun()
-        
+            if st.button(LEVEL_MAP[4], use_container_width=True, type="secondary" if st.session_state.romanization_level != 4 else "primary", key="roman_lvl_4"):
+                st.session_state.romanization_level = 4; st.rerun()
         st.info(f"Nivel seleccionado: **{LEVEL_MAP.get(st.session_state.romanization_level, 'No definido')}**")
 
         st.divider()
@@ -181,7 +195,6 @@ elif st.session_state.page == "Romanización":
             else:
                 st.error("No se pudieron cargar preguntas. Por favor, asegúrate de que la base de datos está poblada.")
     else:
-        # El resto del modo romanización no cambia
         if st.session_state.current_question_index >= len(st.session_state.romanization_questions):
             st.header("🏁 Resultados del Test"); correct_answers = 0; wrong_answers_details = []
             for i, q in enumerate(st.session_state.romanization_questions):
@@ -192,6 +205,14 @@ elif st.session_state.page == "Romanización":
                 st.error(f"**Fallos: {len(wrong_answers_details)} de {len(st.session_state.romanization_questions)}**"); st.divider(); st.subheader("Repaso de tus fallos:")
                 for detail in wrong_answers_details:
                     st.markdown(f"Para **{detail['hangul']}**:"); st.markdown(f" - <span style='color:red;'>Elegiste: `{detail['chosen']}`</span>", unsafe_allow_html=True); st.markdown(f" - <span style='color:green;'>Correcta: `{detail['correct']}`</span>", unsafe_allow_html=True); st.markdown("---")
+            
+            st.divider()
+            st.subheader("Repaso de Frases y Traducciones")
+            # --- NUEVA SECCIÓN PARA MOSTRAR TRADUCCIONES ---
+            for q in st.session_state.romanization_questions:
+                with st.expander(f"Ver traducción de '{q['hangul']}'"):
+                    st.info(f"**Traducción:** {q.get('translation_en', 'Traducción no disponible.')}")
+            
             st.divider()
             if st.button("↩️ Volver a Jugar", use_container_width=True):
                 st.session_state.romanization_practice_in_progress = False; st.rerun()
