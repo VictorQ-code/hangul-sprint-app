@@ -51,17 +51,20 @@ def get_practice_item(level=1):
     cursor = conn.cursor()
 
     try:
+        # La consulta SQL no cambia, solo los nombres de las columnas que leemos después
         cursor.execute("SELECT * FROM vocabulary WHERE level = ? ORDER BY RANDOM() LIMIT 1", (level,))
         item = cursor.fetchone()
     finally:
         conn.close()
 
     if item:
+        # ---- ESTA ES LA ZONA CORREGIDA ----
+        # Mapeamos los nombres de las columnas del CSV a las claves que la app espera.
         return {
             "id": item["id"],
-            "hangul": item["hangul"],
-            "roman": item["roman"],
-            "translation_en": item["translation_en"],
+            "hangul": item["kor_sent"], # <-- ¡CAMBIO CLAVE! Leemos de "kor_sent"
+            "roman": item["roman"],     # <-- Leemos la romanización ya hecha
+            "translation_en": item["translation_en"], # <-- Leemos la traducción ya hecha
             "level": item["level"]
         }
     else:

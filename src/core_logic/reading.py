@@ -7,6 +7,44 @@ from core_logic.timer import Timer
 def start_reading_session(level=1):
     """
     Prepara una nueva sesión de lectura.
+    1. Obtiene UN item de práctica con todos sus datos.
+    2. Genera 3 opciones de respuesta falsas (distractores).
+    """
+    item = stats.get_practice_item(level)
+    
+    if not item:
+        return {"error": f"No se encontraron frases para el nivel {level}."}
+
+    # ---- LÓGICA SIMPLIFICADA ----
+    # Ya tenemos la respuesta correcta directamente.
+    correct_answer = item['roman']
+    
+    # Para los señuelos (decoys), seguimos necesitando otras romanizaciones.
+    # La lógica de obtenerlas puede permanecer, pero ahora el punto de partida es más simple.
+    decoys = []
+    attempts = 0
+    max_attempts = 10 
+    all_romans = [correct_answer] # Evitar duplicados
+    
+    while len(decoys) < 3 and attempts < max_attempts:
+        decoy_item = stats.get_practice_item(level)
+        # Asegurarnos de que el señuelo no sea la respuesta correcta
+        if decoy_item and decoy_item['roman'] not in all_romans:
+            decoys.append(decoy_item['roman'])
+            all_romans.append(decoy_item['roman'])
+        attempts += 1
+
+    options = decoys + [correct_answer]
+    random.shuffle(options)
+
+    # Devolvemos el item completo, que ahora contiene la traducción también.
+    return {
+        "practice_item": item,
+        "silent_mode_options": options,
+        "error": None
+    }
+    """
+    Prepara una nueva sesión de lectura.
     1. Obtiene un item de práctica de la base de datos.
     2. Para el modo silencioso, genera 3 opciones de respuesta falsas.
     Devuelve un diccionario con toda la información necesaria para la UI.

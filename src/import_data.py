@@ -1,71 +1,59 @@
-import csv
+import pandas as pd
 import os
-from korean_romanizer.romanizer import Romanizer
-# Importamos las funciones de nuestro módulo de base de datos
-from .data import database 
+from .data import database # Importamos desde el mismo directorio
 
 def import_csv_to_db():
     """
-    Lee el archivo conversations.csv, genera la romanización y lo guarda todo
-    en la tabla 'vocabulary' de la base de datos SQLite.
+    Lee el archivo korean_webtext_FINAL_clean.csv usando pandas y lo guarda
+    en la tabla 'vocabulary' de la base de datos.
+    Esta versión es más rápida y simple, ya que el CSV contiene todos los datos necesarios.
     """
-    print("--- Iniciando script de importación de datos ---")
+    print("--- Iniciando nuevo script de importación de datos ---")
 
-    # 1. Asegurarse de que la base de datos y sus tablas existen
+    # 1. Asegurarse de que la base de datos y sus tablas existen (con la nueva estructura)
     database.create_tables()
 
-    # 3. Preparar la lista para guardar los datos
-    vocabulary_to_add = []
+    # 2. Define el nombre de tu nuevo archivo CSV
+    csv_filename = 'korean_webtext_FINAL_clean.csv'
     
-    # 4. Construir la ruta al archivo CSV
-    file_path = os.path.join(os.path.dirname(__file__), 'data', 'conversations.csv')
+    # 3. Construir la ruta al archivo CSV (asumiendo que está en una carpeta 'data' al mismo nivel que 'core_logic')
+    # Ajusta la ruta si tu estructura de carpetas es diferente.
+    # Por ejemplo, si está en '../data/' o en el mismo directorio.
+    # CÓDIGO NUEVO Y CORREGIDO
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', csv_filename)
 
     try:
-        with open(file_path, mode='r', encoding='utf-8') as file:
-            csv_reader = csv.reader(file)
-            # Saltamos la cabecera
-            next(csv_reader)
+        print(f"Leyendo el archivo CSV desde: {file_path}")
+        # Usamos pandas para leer el CSV, es muy eficiente
+        df = pd.read_csv(file_path)
 
-            print("Leyendo archivo CSV y procesando frases...")
+        # 4. Verificar que las columnas necesarias existen
+        required_columns = ['kor_sent', 'roman', 'translation_en', 'level']
+        if not all(col in df.columns for col in required_columns):
+            print(f"Error: El CSV debe contener las columnas: {required_columns}")
+            return
             
-            current_level = 1
-            conversation_count = 0
-            
-            for row in csv_reader:
-                # Extraemos los datos necesarios
-                kor_sent = row[2]
-                eng_sent = row[3]
-                
-                # Pasamos el texto coreano directamente al crear el objeto Romanizer
-                roman_sent = Romanizer(kor_sent).romanize() # <--- LÍNEA CORREGIDA
-                
-                # Lógica simple para asignar niveles: cada 20 conversaciones, sube un nivel
-                conversation_id = int(row[1])
-                if conversation_id == 1:
-                    conversation_count += 1
-                
-                if conversation_count > 20:
-                    current_level += 1
-                    conversation_count = 1 # Reiniciamos el contador
+        # 5. Seleccionar solo las columnas que queremos insertar en la base de datos
+        df_to_insert = df[required_columns]
 
-                # Añadimos la tupla de datos a nuestra lista
-                vocabulary_to_add.append((kor_sent, roman_sent, eng_sent, current_level))
+        # 6. Convertir el DataFrame a una lista de tuplas, que es lo que espera nuestra función de base de datos
+        vocabulary_to_add = df_to_insert.to_records(index=False).tolist()
 
-        # 5. Insertar todos los datos en la base de datos de una sola vez
+        # 7. Insertar todos los datos en la base de datos de una sola vez
         if vocabulary_to_add:
-            print(f"Procesadas {len(vocabulary_to_add)} frases. Insertando en la base de datos...")
+            print(f"Procesadas {len(vocabulary_to_add)} frases. Insertando en la base de datos (esto puede tardar un poco)...")
             database.insert_vocabulary_batch(vocabulary_to_add)
             print("¡Datos importados con éxito a la tabla 'vocabulary'!")
         else:
-            print("No se encontraron nuevos datos para añadir.")
+            print("El CSV estaba vacío o no se encontraron datos para añadir.")
 
     except FileNotFoundError:
-        print(f"ERROR: No se encontró 'conversations.csv' en la ruta: {file_path}")
+        print(f"ERROR: No se encontró el archivo '{csv_filename}' en la ruta: {file_path}")
+        print("Asegúrate de que la ruta y el nombre del archivo son correctos.")
     except Exception as e:
         print(f"Ha ocurrido un error inesperado: {e}")
 
     print("--- Script de importación finalizado ---")
-
 
 if __name__ == "__main__":
     import_csv_to_db()
