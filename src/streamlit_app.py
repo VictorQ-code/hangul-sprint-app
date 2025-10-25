@@ -1,11 +1,10 @@
-# src/streamlit_app.py (Versión Corregida con Color de Texto)
-
 import streamlit as st
 import time
 import pandas as pd
 import re
 import random
 from core_logic import stats
+# Romanizer todavía es útil si quieres romanizar una sola palabra al hacer clic
 from korean_romanizer.romanizer import Romanizer
 
 # --- Configuración de la Página ---
@@ -15,7 +14,6 @@ st.set_page_config(
 )
 
 # --- INICIALIZACIÓN GENERAL DEL ESTADO DE LA SESIÓN ---
-# Variable principal que controla qué página/juego se muestra
 if 'page' not in st.session_state:
     st.session_state.page = "Leer"
 
@@ -53,9 +51,8 @@ if 'user_answers' not in st.session_state:
 # --- FUNCIONES AUXILIARES ---
 # ==============================================================================
 
-# --- Funciones para el juego de Lectura ---
 def load_new_reading_item():
-    """Carga un nuevo item de lectura para el primer minijuego."""
+    """Carga un nuevo item de lectura."""
     item = stats.get_practice_item(level=st.session_state.reading_level)
     if item:
         st.session_state.practice_text_info = item
@@ -65,75 +62,76 @@ def load_new_reading_item():
         st.session_state.selected_word = None
     else:
         st.session_state.practice_text_info = None
-        st.error(f"No se encontraron textos para el nivel {st.session_state.reading_level}.")
+        st.error(f"No se encontraron textos para el nivel {st.session_state.reading_level}. Asegúrate de que la base de datos esté poblada.")
 
-# --- Funciones para el juego de Romanización ---
 def generate_distractors(correct_romanization):
     """Genera 3 romanizaciones incorrectas pero similares a la correcta."""
     distractors = set()
+    # Si la romanización es muy larga (una frase), generamos distractores más simples
+    if len(correct_romanization.split()) > 3:
+        words = correct_romanization.split()
+        sample_word = random.choice(words)
+        distractors.add(sample_word + " is wrong")
+        distractors.add(correct_romanization.replace('a','e'))
+    
     swaps = {
         'eo': 'o', 'o': 'eo', 'eu': 'u', 'u': 'eu', 'ae': 'e', 'e': 'ae',
-        'g': 'k', 'k': 'g', 'd': 't', 't': 'd', 'b': 'p', 'p': 'b', 'j': 'ch', 'ch': 'j',
-        'r': 'l', 'l': 'r'
+        'g': 'k', 'k': 'g', 'd': 't', 't': 'd', 'b': 'p', 'p': 'b', 'j': 'ch', 'ch': 'j', 'r': 'l', 'l': 'r'
     }
-    
     attempts = 0
     while len(distractors) < 3 and attempts < 50:
         new_roman = list(correct_romanization)
         if not new_roman: break
         idx = random.randint(0, len(new_roman) - 1)
-        
         if idx > 0 and (new_roman[idx-1] + new_roman[idx]) in swaps:
             pair = new_roman[idx-1] + new_roman[idx]
-            swapped_pair = swaps[pair]
-            distractor = correct_romanization[:idx-1] + swapped_pair + correct_romanization[idx+1:]
+            distractor = correct_romanization[:idx-1] + swaps[pair] + correct_romanization[idx+1:]
         elif new_roman[idx] in swaps:
-            swapped_char = swaps[new_roman[idx]]
-            distractor = correct_romanization[:idx] + swapped_char + correct_romanization[idx+1:]
+            distractor = correct_romanization[:idx] + swaps[new_roman[idx]] + correct_romanization[idx+1:]
         else:
             attempts += 1
             continue
-            
-        if distractor != correct_romanization:
-            distractors.add(distractor)
+        if distractor != correct_romanization: distractors.add(distractor)
         attempts += 1
-        
-    while len(distractors) < 3:
-        distractors.add(correct_romanization + random.choice(['a', 'o', 'i', 's']))
-        
+    while len(distractors) < 3: distractors.add(correct_romanization + random.choice([' annyeong', ' sarang', ' kamsahamnida']))
     return list(distractors)
 
+# --- VERSIÓN CORREGIDA DE LA FUNCIÓN ---
 def setup_romanization_game():
-    """Prepara 10 preguntas para el juego de romanización."""
+    """Prepara 10 preguntas para el juego de romanización usando los datos del CSV."""
     st.session_state.romanization_questions = []
     level = st.session_state.get('romanization_level', 1)
     
-    for _ in range(10):
+    items_fetched = 0
+    attempts = 0
+    # Bucle para asegurarse de que obtenemos 10 preguntas válidas
+    while items_fetched < 10 and attempts < 50:
         item = stats.get_practice_item(level=level)
+        attempts += 1 # Incrementar intentos para evitar bucles infinitos
+        
         if item:
+            # ¡CAMBIO CLAVE! Leemos la romanización y el hangul directamente del item.
             hangul_text = item['hangul']
-            clean_hangul = re.sub(r'[^\w\s]', '', hangul_text).strip()
+            correct_romanization = item['roman']
             
-            words = clean_hangul.split()
-            if len(words) > 2:
-                sample_words = random.sample(words, k=min(len(words), random.randint(1, 2)))
-                clean_hangul = " ".join(sample_words)
-                
-            if not clean_hangul: continue
+            # Nos aseguramos de que no sean nulos o vacíos
+            if not hangul_text or not correct_romanization:
+                continue
 
-            correct_romanization = Romanizer(clean_hangul).romanize()
             distractors = generate_distractors(correct_romanization)
             options = distractors + [correct_romanization]
             random.shuffle(options)
             
             st.session_state.romanization_questions.append({
-                "hangul": clean_hangul,
+                "hangul": hangul_text,
                 "correct": correct_romanization,
                 "options": options
             })
+            items_fetched += 1
             
     st.session_state.user_answers = []
     st.session_state.current_question_index = 0
+# ---------------------------------------------
 
 # ==============================================================================
 # --- BARRA LATERAL DE NAVEGACIÓN ---
@@ -151,7 +149,6 @@ with st.sidebar:
 # --- SECCIÓN DEL MINIJUEGO DE LECTURA ---
 # ==============================================================================
 if st.session_state.page == "Leer":
-
     if not st.session_state.practice_in_progress:
         st.header("📖 Preparar Modo de Lectura")
         st.markdown("Selecciona tu nivel de dificultad y pulsa 'Empezar'. El cronómetro comenzará de inmediato.")
@@ -178,17 +175,21 @@ if st.session_state.page == "Leer":
             if st.session_state.timer_running:
                 st.info(" Cronómetro en marcha... ¡Haz clic en una palabra si necesitas ayuda!")
                 words = korean_text.split()
-                cols = st.columns([len(word) + 1 for word in words])
-                for i, word in enumerate(words):
-                    if cols[i].button(word, key=f"word_{i}_{korean_text}", use_container_width=True):
-                        st.session_state.selected_word = word if st.session_state.selected_word != word else None
-                        st.rerun()
+                # Control para evitar demasiadas columnas si la frase es muy larga
+                if len(words) > 10:
+                    st.text_area("Frase de práctica:", korean_text, height=100)
+                    st.warning("La frase es muy larga para mostrarla como botones. Haz clic abajo para finalizar.")
+                else:
+                    cols = st.columns([len(word) + 2 for word in words])
+                    for i, word in enumerate(words):
+                        if cols[i].button(word, key=f"word_{i}_{korean_text}", use_container_width=True):
+                            st.session_state.selected_word = word if st.session_state.selected_word != word else None
+                            st.rerun()
 
             if st.session_state.timer_running and st.session_state.selected_word:
                 clean_word = re.sub(r'[^\w\s]', '', st.session_state.selected_word)
+                # Para esta función específica de ayuda, sigue siendo útil calcular la romanización de una sola palabra
                 romanized_word = Romanizer(clean_word).romanize()
-                # --- LÍNEA CORREGIDA ---
-                # Se añadió 'color: #1c2833;' para que el texto sea oscuro sobre el fondo claro.
                 st.markdown(
                     f"<div style='color: #1c2833; text-align:center;font-size:22px;border:1px solid #007bff;padding:10px;border-radius:10px;background-color:#e7f3ff;margin-bottom:20px;'>"
                     f"<b>{st.session_state.selected_word}</b> se romaniza como: <b>{romanized_word}</b>"
@@ -213,7 +214,7 @@ if st.session_state.page == "Leer":
                 st.markdown(f"#### Frases leídas en esta sesión ({len(st.session_state.session_history)}):")
                 for item in st.session_state.session_history:
                     st.markdown(f"<div style='font-size:20px;padding:10px;background-color:#333;border-radius:5px;margin-top:10px;'>{item['hangul']}</div>", unsafe_allow_html=True)
-                    with st.expander(f"Ver Traducción de '{item['hangul'][:15]}...'"):
+                    with st.expander(f"Ver Traducción de '{item['hangul'][:25]}...'"):
                         st.info(f"**{item.get('translation_en', 'Traducción no disponible.')}**")
                 
                 st.divider()
@@ -225,7 +226,6 @@ if st.session_state.page == "Leer":
 # --- SECCIÓN DEL MINIJUEGO DE ROMANIZACIÓN ---
 # ==============================================================================
 elif st.session_state.page == "Romanización":
-    
     if not st.session_state.romanization_practice_in_progress:
         st.header("✍️ Test de Romanización")
         st.markdown("Elige la romanización correcta para cada palabra o frase en coreano. ¡Presta atención a los detalles!")
@@ -239,7 +239,7 @@ elif st.session_state.page == "Romanización":
                 st.session_state.romanization_practice_in_progress = True
                 st.rerun()
             else:
-                st.error("No se pudieron cargar preguntas. Por favor, intenta de nuevo.")
+                st.error("No se pudieron cargar preguntas. Por favor, asegúrate de que la base de datos está poblada e inténtalo de nuevo.")
 
     else:
         if st.session_state.current_question_index >= len(st.session_state.romanization_questions):
@@ -283,7 +283,7 @@ elif st.session_state.page == "Romanización":
             st.progress((current_index + 1) / total_questions)
             st.subheader(f"Pregunta {current_index + 1} de {total_questions}")
             
-            st.markdown(f"<div style='font-size:32px;text-align:center;padding:20px;background-color:#333;border-radius:10px;margin-bottom:25px;'>{current_q['hangul']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:24px;text-align:center;padding:20px;background-color:#333;border-radius:10px;margin-bottom:25px;'>{current_q['hangul']}</div>", unsafe_allow_html=True)
             
             with st.form(key=f"form_q_{current_index}"):
                 chosen_option = st.radio("Elige la romanización correcta:", options=current_q['options'], index=None)
