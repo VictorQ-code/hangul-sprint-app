@@ -1,4 +1,4 @@
-# src/streamlit_app.py (Versión final con sliders corregidos)
+# src/streamlit_app.py (Versión con botones en lugar de slider)
 
 import streamlit as st
 import time
@@ -86,12 +86,11 @@ if st.session_state.page == "Leer":
         st.header("📖 Preparar Modo de Lectura")
         st.markdown("Selecciona tu nivel de dificultad y pulsa 'Empezar'. El cronómetro comenzará de inmediato.")
         
-        # --- SLIDER DE LECTURA CORREGIDO ---
         st.session_state.reading_level = st.slider(
             "Elige tu nivel", 
             min_value=1, 
             max_value=4, 
-            value=st.session_state.reading_level, # <--- Se añadió "value="
+            value=st.session_state.reading_level,
             format_func=lambda x: LEVEL_MAP.get(x, f"Nivel {x}")
         )
         
@@ -104,7 +103,6 @@ if st.session_state.page == "Leer":
                 st.session_state.practice_in_progress = True
                 st.rerun()
     else:
-        # El resto del modo lectura no cambia
         if st.session_state.practice_text_info:
             korean_text = st.session_state.practice_text_info['hangul']
             if not st.session_state.timer_running and st.session_state.elapsed_time == 0:
@@ -148,14 +146,32 @@ elif st.session_state.page == "Romanización":
         st.header("✍️ Test de Romanización")
         st.markdown("Elige la romanización correcta para cada palabra o frase en coreano. ¡Presta atención a los detalles!")
         
-        # --- SLIDER DE ROMANIZACIÓN CORREGIDO ---
-        st.session_state.romanization_level = st.slider(
-            "Elige tu nivel", 
-            min_value=1, 
-            max_value=4, 
-            value=st.session_state.romanization_level, # <--- Se añadió "value="
-            format_func=lambda x: LEVEL_MAP.get(x, f"Nivel {x}")
-        )
+        # --- REEMPLAZO DE SLIDER POR BOTONES ---
+        st.write("**Elige tu nivel:**")
+        
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            if st.button(LEVEL_MAP[1], use_container_width=True, type="secondary" if st.session_state.romanization_level != 1 else "primary"):
+                st.session_state.romanization_level = 1
+                st.rerun()
+
+        with col2:
+            if st.button(LEVEL_MAP[2], use_container_width=True, type="secondary" if st.session_state.romanization_level != 2 else "primary"):
+                st.session_state.romanization_level = 2
+                st.rerun()
+
+        with col3:
+            if st.button(LEVEL_MAP[3], use_container_width=True, type="secondary" if st.session_state.romanization_level != 3 else "primary"):
+                st.session_state.romanization_level = 3
+                st.rerun()
+
+        with col4:
+            if st.button(LEVEL_MAP[4], use_container_width=True, type="secondary" if st.session_state.romanization_level != 4 else "primary"):
+                st.session_state.romanization_level = 4
+                st.rerun()
+        
+        st.info(f"Nivel seleccionado: **{LEVEL_MAP.get(st.session_state.romanization_level, 'No definido')}**")
 
         st.divider()
         if st.button("🚀 Empezar Test", use_container_width=True, type="primary"):
