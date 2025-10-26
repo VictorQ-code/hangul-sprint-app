@@ -77,7 +77,7 @@ def update_phrase_level(phrase_id, new_level):
 
 
 
-
+@st.cache_data
 def get_word_translation(word):
     """
     Busca la traducción de una palabra en la NUEVA tabla 'word_dictionary'.
