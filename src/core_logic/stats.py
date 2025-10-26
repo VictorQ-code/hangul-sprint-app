@@ -5,7 +5,7 @@ import sqlite3
 import re
 import os # Usaremos 'os' para construir la ruta a la DB de forma segura
 from data import database # Asegúrate de que la importación sea relativa
-
+import streamlit as st
 def get_practice_item(level=1):
     """
     Selecciona una frase/palabra aleatoria de la tabla 'vocabulary' para un nivel dado.
